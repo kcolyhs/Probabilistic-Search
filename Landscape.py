@@ -20,7 +20,7 @@ class Landscape:
 
         def val_to_prob(value):
             if value < 0 or value >= 1:
-                print(f"ERROR: probability value ({value}) out of bounds")
+                #print(f"ERROR: probability value ({value}) out of bounds")
                 return None
             elif value < .2:
                 return .1
@@ -39,8 +39,7 @@ class Landscape:
                 value = self.land_scape_dist[x][y]
                 self.prob_map[x][y] = val_to_prob(value)
 
-        self.target = (random.randint(0,self.dim-1),random.randint(0,self.dim-1))
-        print(f"[Landscape]: Target is in [{self.target}]")
+        self.target = (random.randint(0,self.dim),random.randint(0,self.dim))
 
     def move_target(self):
         x = self.target[0]
