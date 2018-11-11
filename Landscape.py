@@ -39,7 +39,7 @@ class Landscape:
                 value = self.land_scape_dist[x][y]
                 self.prob_map[x][y] = val_to_prob(value)
 
-        self.target = (random.randint(0,self.dim),random.randint(0,self.dim))
+        self.target = (random.randint(0,self.dim-1),random.randint(0,self.dim-1))
         print(f"[Landscape]: Target is in [{self.target}]")
 
     def move_target(self):

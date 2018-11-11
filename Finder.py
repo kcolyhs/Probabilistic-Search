@@ -92,7 +92,8 @@ if __name__ == '__main__':
         print("===================================")
         x+=1
     print(f"Target was in [{finder.ls.target}]")
-    print(f"Found target in {x} steps")
+    print(f"Loop ended at {x} steps")
     print("# times searched each spot")
     print(finder.query_counter)
+    print("done")
       
