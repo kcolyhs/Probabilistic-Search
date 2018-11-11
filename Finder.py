@@ -9,16 +9,22 @@ class LsFinder:
     def __init__(self):
         self.dim = self.default_dim
         self.new_landscape()
-        default_chance = 1/(self.ls.dim*self.ls.dim)
+        self.default_chance = 1/(self.ls.dim*self.ls.dim)
         self.likelihood = np.ones(
                 shape=(LsFinder.default_dim, LsFinder.default_dim))
-        self.likelihood *= default_chance
+        self.likelihood *= self.default_chance
         self.query_counter= np.zeros((self.dim,self.dim))
 
     def new_landscape(self):
         self.ls = Landscape(self.dim)
         self.cur_location = np.array([int(self.dim/2),int(self.dim/2)])
 
+    def reset(self):
+        self.new_landscape()
+        self.likelihood = np.ones(
+                shape=(LsFinder.default_dim, LsFinder.default_dim))
+        self.likelihood *= self.default_chance
+        self.query_counter= np.zeros((self.dim,self.dim))
 
 
     def find(self,x,y):
@@ -67,6 +73,7 @@ class LsFinder:
         self.cur_location = next_move
         return self.find(next_move[0],next_move[1])
 
+
     def rule1(self,coords):
         if not self.in_bounds(coords[0],coords[1]):
             return 0
@@ -82,7 +89,7 @@ class LsFinder:
         y = search_index%self.dim
         return self.find(x,y)
         
-        return self.find(x,y)
+
     def locate_target(self, search_rule):
         target_found = False
         steps = 0
@@ -94,8 +101,11 @@ class LsFinder:
     def run_trials(self, num_trials, search_rule):
         total_steps = 0
         for x in range(0, num_trials):
-            finder = LsFinder()
-            total_steps += finder.locate_target(search_rule)
+            self.reset()
+            target_found = False
+            while not target_found:
+                target_found = search_rule()
+                total_steps += 1
         return total_steps/num_trials 
             
 if __name__ == '__main__':
