@@ -4,17 +4,20 @@ import numpy as np
 
 class LsFinder:
     default_dim = 3
+    moves = np.array([0,1],[0,-1],[1,0],[-1,0])
 
     def __init__(self):
+        self.dim = self.ls.dim
         self.new_landscape()
         default_chance = 1/(self.ls.dim*self.ls.dim)
         self.likelihood = np.ones(
                 shape=(LsFinder.default_dim, LsFinder.default_dim))
         self.likelihood *= default_chance
-        self.dim = self.ls.dim
 
     def new_landscape(self):
-        self.ls = Landscape(LsFinder.default_dim)
+        self.ls = Landscape(self.dim)
+        self.cur_location = np.array[int(self.dim/2),int(self.dim/2)]
+
 
 
     def find(self,x,y):
@@ -44,9 +47,23 @@ class LsFinder:
         search_index = np.argmax(self.likelihood)
         x = int(search_index/self.dim)
         y = search_index%self.dim
-        
         return self.find(x,y)
 
+    def simple_wander_search_r1(self):
+        # moves = np.arary([
+        #     self.current_location,
+        #     self.current_location,
+        #     self.current_location,
+        #     self.current_location,
+        # ])
+        # moves =
+        # i = argmax()
+        pass
+        
+
+
+    def in_bounds(self,x,y):
+        return (x >=0 and x < self.dim and y >= 0 and y < self.dim)
 
 if __name__ == '__main__':
     finder = LsFinder()
