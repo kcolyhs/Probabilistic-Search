@@ -6,6 +6,7 @@ import matplotlib
 class Landscape:
     def __init__(self, dim):
         self.dim = dim
+        self.generate_map()
 
     def generate_map(self):
         # TODO randomly assign the tiles to each
@@ -30,13 +31,15 @@ class Landscape:
             else:
                 return .9
 
-        self.land_scape_dist = np.random.uniform(size=(dim, dim))
-        self.prob_map = np.zeros((dim, dim))
+        self.land_scape_dist = np.random.uniform(0,1,size=(dim, dim)) 
+        self.prob_map = np.zeros((dim, dim)) # probabilities of finding
         # TODO set the prob_map values using assign_tile()
         for x in range(0, dim):
             for y in range(0, dim):
                 value = self.land_scape_dist[x][y]
                 self.prob_map[x][y] = val_to_prob(value)
+
+        self.target = (random.randint(0,self.dim),random.randint(0,self.dim))
 
     def move_target(self):
         x = self.target[0]
@@ -50,6 +53,16 @@ class Landscape:
                     move_list.append((i, j))
         # TODO set target to a new location at random from the list
         pass
+
+    def query_tile(self,x,y):
+        if (x == self.target[0]) and (y == self.target[1]):
+            if random.uniform(0,1) <= self.prob_map[x][y]:
+                return False
+            else:
+                return True
+        else:
+            return False
+
 
 if __name__ == '__main__':
     ls = Landscape(50)
