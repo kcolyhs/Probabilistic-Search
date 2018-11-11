@@ -59,14 +59,18 @@ class LsFinder:
         # moves =
         # i = argmax()
         pass
-        
-
 
     def in_bounds(self,x,y):
         return (x >=0 and x < self.dim and y >= 0 and y < self.dim)
+    def search_rule2(self):
+        #prob of being found = prob of being in * (1 - false negative)
+        search_index = np.argmax(np.multiply(self.likelihood, 1 - self.ls.prob_map))
+        x = int(search_index/self.dim)
+        y = search_index%self.dim
+        
+        return self.find(x,y)
 
 if __name__ == '__main__':
     finder = LsFinder()
     finder.find(1,1)
-    
     print("Done")
