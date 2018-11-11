@@ -3,7 +3,7 @@ import numpy as np
 
 
 class LsFinder:
-    default_dim = 5
+    default_dim = 50
     move_vectors = np.array([[0,1],[0,-1],[1,0],[-1,0]])
 
     def __init__(self):
@@ -22,14 +22,14 @@ class LsFinder:
 
 
     def find(self,x,y):
-        print(f"Searching in spot [{x},{y}]")
+        #print(f"Searching in spot [{x},{y}]")
         self.query_counter[x][y]+=1
         if(self.ls.query_tile(x,y)):
-            print(f"Target has been found in [{x},{y}]")
+            #print(f"Target has been found in [{x},{y}]")
             return True
         else:
             self.bayesian_update(x,y)
-            print(self.likelihood)
+            #print(self.likelihood)
             return False
             
 
@@ -50,7 +50,7 @@ class LsFinder:
         
         # floating point error
         error = np.sum(self.likelihood) -1
-        print(f"[Bayes]: floating point error = {error}")
+        #print(f"[Bayes]: floating point error = {error}")
         self.likelihood[miss_x][miss_y] = new_belief - error
 
     def search_rule1(self):
@@ -63,7 +63,7 @@ class LsFinder:
         moves = self.move_vectors + self.cur_location
         scores = np.array(map(self.rule1, moves))
         next_move = moves[np.argmax(scores)]
-        print(next_move)
+        #print(next_move)
         self.cur_location = next_move
         return self.find(next_move[0],next_move[1])
 
@@ -80,20 +80,31 @@ class LsFinder:
         search_index = np.argmax(np.multiply(self.likelihood, 1 - self.ls.prob_map))
         x = int(search_index/self.dim)
         y = search_index%self.dim
+        return self.find(x,y)
         
         return self.find(x,y)
+    def locate_target(self, search_rule):
+        target_found = False
+        steps = 0
+        while not target_found:
+            target_found = search_rule()
+            steps += 1
+        return steps
 
+    def run_trials(self, num_trials, search_rule):
+        total_steps = 0
+        for x in range(0, num_trials):
+            finder = LsFinder()
+            total_steps += finder.locate_target(search_rule)
+        return total_steps/num_trials 
+            
 if __name__ == '__main__':
     finder = LsFinder()
     x=0
-    while((not finder.search_rule1()) and x < 1000 and
-          np.sum(finder.likelihood) > .98):
-        print(np.sum(finder.likelihood))
-        print("===================================")
-        x+=1
-    print(f"Target was in [{finder.ls.target}]")
-    print(f"Loop ended at {x} steps")
-    print("# times searched each spot")
-    print(finder.query_counter)
+    avg_steps = finder.run_trials(100, finder.search_rule1)
+    print(f"Average number of steps for rule 1 [{avg_steps}]")
+    avg_steps = finder.run_trials(100, finder.search_rule2)
+    print(f"Average number of steps for rule 2 [{avg_steps}]")
+    #print(finder.query_counter)
     print("done")
       
