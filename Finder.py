@@ -3,7 +3,7 @@ import numpy as np
 
 
 class LsFinder:
-    default_dim = 50
+    default_dim = 10
     move_vectors = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
     def __init__(self):
@@ -63,7 +63,15 @@ class LsFinder:
 
     def simple_wander_search_r1(self):
         moves = self.move_vectors + self.cur_location
-        scores = np.array(map(self.rule1, moves))
+        scores = np.array(list(map(self.rule1, moves)))
+        next_move = moves[np.argmax(scores)]
+        # print(next_move)
+        self.cur_location = next_move
+        return self.find(next_move[0], next_move[1])
+
+    def simple_wander_search_r2(self):
+        moves = self.move_vectors + self.cur_location
+        scores = np.array(list(map(self.rule2, moves)))
         next_move = moves[np.argmax(scores)]
         # print(next_move)
         self.cur_location = next_move
@@ -72,7 +80,15 @@ class LsFinder:
     def rule1(self, coords):
         if not self.in_bounds(coords[0], coords[1]):
             return 0
-        return self.likelihood[coords[0], coords[1]]
+        else:
+            return self.likelihood[coords[0]][coords[1]]
+
+    def rule2(self, coords):
+        if not self.in_bounds(coords[0], coords[1]):
+            return 0
+        else:
+            return (np.multiply(self.likelihood, 1 - self.ls.prob_map)
+                    [coords[0]][coords[1]])
 
     def in_bounds(self, x, y):
         return (x >= 0 and x < self.dim and y >= 0 and y < self.dim)
@@ -106,9 +122,14 @@ class LsFinder:
 if __name__ == '__main__':
     finder = LsFinder()
     x = 0
-    avg_steps = finder.run_trials(100, finder.search_rule1)
-    print(f"Average number of steps for rule 1 [{avg_steps}]")
-    avg_steps = finder.run_trials(100, finder.search_rule2)
-    print(f"Average number of steps for rule 2 [{avg_steps}]")
-    # print(finder.query_counter)
+    num_test = 100
+    search_functions = [finder.search_rule1,
+                        finder.search_rule2,
+                        finder.simple_wander_search_r1,
+                        finder.simple_wander_search_r2
+                        ]
+    for func in search_functions:
+        avg_steps = finder.run_trials(num_test, func)
+        print(f"Average number of steps for\
+              {func.__name__} is [{avg_steps}]")
     print("done")
