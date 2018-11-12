@@ -31,7 +31,7 @@ class Landscape:
             else:
                 return .9
 
-        self.land_scape_dist = np.random.uniform(0,1,size=(dim, dim)) 
+        self.land_scape_dist = np.random.uniform(0,1,size=(dim, dim))
         self.prob_map = np.zeros((dim, dim)) # probabilities of finding
         # TODO set the prob_map values using assign_tile()
         for x in range(0, dim):
