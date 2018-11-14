@@ -1,4 +1,4 @@
-from Landscape import Landscape
+from landscape import Landscape
 import numpy as np
 
 
@@ -43,9 +43,6 @@ class LsFinder:
         new_belief = original_belief * false_neg_chance
         remaining_belief = 1 - new_belief
         scaling_factor = remaining_belief/(1-original_belief)
-
-        if scaling_factor < 0:
-            print("ERROR")
 
         self.likelihood *= scaling_factor
         self.likelihood[miss_coords] = new_belief
