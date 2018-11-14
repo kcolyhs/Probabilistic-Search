@@ -1,6 +1,11 @@
 DEBUG_LEVEL = 0
 
 
+def set_debug_level(level):
+    global DEBUG_LEVEL
+    DEBUG_LEVEL = level
+
+
 def debug_print(str, level):
     if DEBUG_LEVEL >= level:
         print(str)
