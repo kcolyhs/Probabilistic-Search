@@ -1,29 +1,31 @@
-from Landscape import Landscape
+from landscape import Landscape
+from finder_utils import debug_print, set_debug_level, error_print
 import numpy as np
+
+DEFAULT_DIM = 10
+DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
 
 class LsFinder:
-    default_dim = 10
-    move_vectors = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
-    def __init__(self):
-        self.dim = self.default_dim
-        self.new_landscape()
+    def __init__(self, dim_arg=DEFAULT_DIM,
+                 move_vec_arg=DEFAULT_MOVE_VECTORS):
+        self.dim = dim_arg
+        self.move_vectors = move_vec_arg
+        self.ls = Landscape(self.dim)
+        self.cur_location = ([int(self.dim/2), int(self.dim/2)])
         self.cur_location = None
-        self.default_chance = 1/(self.ls.dim*self.ls.dim)
+        self.default_chance = 1/(self.dim*self.dim)
         self.likelihood = np.ones(
-            shape=(LsFinder.default_dim, LsFinder.default_dim))
+            shape=(self.dim, self.dim))
         self.likelihood *= self.default_chance
         self.query_counter = np.zeros((self.dim, self.dim))
 
-    def new_landscape(self):
+    def reset(self):
         self.ls = Landscape(self.dim)
         self.cur_location = ([int(self.dim/2), int(self.dim/2)])
-
-    def reset(self):
-        self.new_landscape()
         self.likelihood = np.ones(
-            shape=(LsFinder.default_dim, LsFinder.default_dim))
+            shape=(self.dim, self.dim))
         self.likelihood *= self.default_chance
         self.query_counter = np.zeros((self.dim, self.dim))
 
@@ -33,27 +35,19 @@ class LsFinder:
         if self.ls.query_tile(coords):
             # print(f"Target has been found in [{x},{y}]")
             return True
-        self.bayesian_update(coords)
+        self.bayes_update_on_miss(coords)
         # print(self.likelihood)
         return False
 
-    def bayesian_update(self, miss_coords):
+    def bayes_update_on_miss(self, miss_coords):
         false_neg_chance = self.ls.prob_map[miss_coords]
         original_belief = self.likelihood[miss_coords]
         new_belief = original_belief * false_neg_chance
-        remaining_belief = 1 - new_belief
-        scaling_factor = remaining_belief/(1-original_belief)
-
-        if scaling_factor < 0:
-            print("ERROR")
-
-        self.likelihood *= scaling_factor
         self.likelihood[miss_coords] = new_belief
 
-        # floating point error
-        error = np.sum(self.likelihood) - 1
-        # print(f"[Bayes]: floating point error = {error}")
-        self.likelihood[miss_coords] = new_belief - error
+        self.likelihood /= np.sum(self.likelihood)
+
+    # def bayes_update_on_move(self, )
 
     def search_rule1(self):
         search_index = np.argmax(self.likelihood)
@@ -101,15 +95,6 @@ class LsFinder:
         y = search_index % self.dim
         return self.find((x, y))
 
-    # @staticmethod
-    # def locate_target(search_rule):
-    #     target_found = False
-    #     steps = 0
-    #     while not target_found:
-    #         target_found = search_rule()
-    #         steps += 1
-    #     return steps
-
     def run_trials(self, num_trials, search_rule):
         total_steps = 0
         for __ in range(0, num_trials):
@@ -120,15 +105,21 @@ class LsFinder:
                 total_steps += 1
         return total_steps/num_trials
 
+    def search_moving_target():
+        pass
+
+    def bayes_update_on_move():
+        pass
+
 
 if __name__ == '__main__':
+    set_debug_level(10)
     finder = LsFinder()
     num_test = 100
     search_functions = [finder.search_rule1,
                         finder.search_rule2,
                         finder.simple_wander_search_r1,
-                        finder.simple_wander_search_r2
-                        ]
+                        finder.simple_wander_search_r2]
     for func in search_functions:
         avg_steps = finder.run_trials(num_test, func)
         print(f"Average number of steps for\
