@@ -130,6 +130,10 @@ class Landscape:
         return (0 <= coord_x < self.dim
                 and 0 <= coord_y < self.dim)
 
+    @staticmethod
+    def get_target_move_vectors():
+        return TARGET_MOVE_VECTORS
+
 
 if __name__ == '__main__':
     set_debug_level(5)

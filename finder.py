@@ -4,7 +4,7 @@ from landscape import Landscape
 from finder_utils import debug_print, set_debug_level, error_print
 import numpy as np
 
-DEFAULT_DIM = 10
+DEFAULT_DIM = 3
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
 
@@ -19,6 +19,7 @@ class LsFinder:
         self.landscape = Landscape(self.dim)
         self.cur_location = ([int(self.dim/2), int(self.dim/2)])
         self.cur_location = None
+        self.path_target = None
         self.default_chance = 1/(self.dim*self.dim)
         self.likelihood = np.ones(
             shape=(self.dim, self.dim))
@@ -76,19 +77,58 @@ class LsFinder:
 
     # def bayes_update_on_move(self, )
 
-    def search_target(self, rule_num, is_local=False, is_target_moving=False):
+    def search_target(self, rule_num, search_approach,
+                      target_moving_arg=False):
         """Runs a certain algorithm to find the target on a certain map
         """
 
+        total_steps = 0
+        self.landscape.is_target_moving = target_moving_arg
         if rule_num == 1:
-            def get_next_tile(self):
-                index = np.argmax(self.likelihood)
-                return np.unravel_index(index, (self.dim, self.dim))
+            def score_matrix():
+                return self.likelihood
         elif rule_num == 2:
-            def get_next_tile(self):
-                index = np.argmax(np.multiply(self.likelihood,
-                                              1 - self.landscape.prob_map))
+            def score_matrix():
+                return np.multiply(self.likelihood, 1-self.landscape.prob_map)
+        else:
+            error_print("Invalid rule number", 0)
+            return -1
+
+        def coords_to_chance(coords):
+            return score_matrix()[coords]
+
+        def get_most_likely_global():
+            return np.argmax(score_matrix())
+
+        search_approach = search_approach.lower()
+        if search_approach is 'global':
+            def get_next_tile():
+                index = get_most_likely_global()
                 return np.unravel_index(index, (self.dim, self.dim))
+        elif search_approach is 'local':
+            def get_next_tile():
+                moves = self.move_vectors + self.cur_location
+                scores = np.array(list(map(coords_to_chance, moves)))
+                next_move = moves[np.argmax(scores)]
+                next_move = tuple(next_move)
+                # print(next_move)
+                self.cur_location = next_move
+                return next_move
+        elif search_approach is 'path':
+            # TODO implement path
+            pass
+
+        target_found = False
+        while not target_found:
+            total_steps += 1
+            next_move = self.get_next_tile()
+            target_found = self.find(next_move)
+            if target_found:
+                return total_steps
+            self.bayes_update_on_miss(next_move)
+            if target_moving_arg is True:
+                self.bayes_update_on_move()
+        return total_steps
 
     def search_rule1(self):
         search_index = np.argmax(self.likelihood)
@@ -101,7 +141,7 @@ class LsFinder:
         scores = np.array(list(map(self.rule1, moves)))
         next_move = moves[np.argmax(scores)]
         next_move = tuple(next_move)
-        # print(next_move)
+        debug_print(f'Next move is:{next_move} with chance{np.max(scores)}', 9)
         self.cur_location = next_move
         return self.find(next_move)
 
@@ -110,23 +150,25 @@ class LsFinder:
         scores = np.array(list(map(self.rule2, moves)))
         next_move = moves[np.argmax(scores)]
         next_move = tuple(next_move)
-        # print(next_move)
+        debug_print(f'Next move is:{next_move} with chance{np.max(scores)}', 5)
         self.cur_location = next_move
         return self.find(next_move)
 
     def rule1(self, coords):
-        if not self.in_bounds(coords[0], coords[1]):
+        coords = tuple(coords)
+        if not self.in_bounds(coords):
             return 0
-        return self.likelihood[coords[0]][coords[1]]
+        return self.likelihood[coords]
 
     def rule2(self, coords):
-        if not self.in_bounds(coords[0], coords[1]):
+        coords = tuple(coords)
+        if not self.in_bounds(coords):
             return 0
         return (np.multiply(self.likelihood, 1 - self.landscape.prob_map)
-                [coords[0]][coords[1]])
+                [coords])
 
-    def in_bounds(self, x, y):
-        return 0 <= x < self.dim and 0 <= y < self.dim
+    def in_bounds(self, coords):
+        return self.landscape.in_bounds(coords)
 
     def search_rule2(self):
         # prob of being found = prob of being in * (1 - false negative)
@@ -146,21 +188,47 @@ class LsFinder:
                 total_steps += 1
         return total_steps/num_trials
 
-    def search_moving_target(self):
-        pass
-
     def bayes_update_on_move(self):
-        pass
+        # Fetch the observation on boundry crossing from the landscape
+        clue = self.landscape.last_move
+        target_move_vectors = Landscape.get_target_move_vectors()
+
+        new_belief = np.zeros((self.dim, self.dim))
+        for x in range(self.dim):
+            for y in range(self.dim):
+                coords = (x, y)
+                t_id = self.landscape.t_id_map[coords]
+                if t_id not in clue:
+                    continue
+                if t_id == clue[0]:
+                    other_t_id = clue[1]
+                else:
+                    other_t_id = clue[0]
+                valid_neighbors = []
+                poss_prev_locations = coords - target_move_vectors
+                for neighbor in poss_prev_locations:
+
+
+
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
-    set_debug_level(8)
+    set_debug_level(5)
     finder = LsFinder()
     num_test = 100
-    search_functions = [finder.search_rule1,
+    search_functions = [
+                        finder.search_rule1,
                         finder.search_rule2,
                         finder.simple_wander_search_r1,
-                        finder.simple_wander_search_r2]
+                        finder.simple_wander_search_r2,
+                        ]
     for func in search_functions:
         avg_steps = finder.run_trials(num_test, func)
         print(f"Average number of steps for\
