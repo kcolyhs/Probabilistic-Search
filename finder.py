@@ -1,8 +1,8 @@
 """Module that contains the finder class and the main code to run trials
 """
+import numpy as np
 from landscape import Landscape
 from finder_utils import debug_print, set_debug_level, error_print
-import numpy as np
 
 DEFAULT_DIM = 3
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
@@ -11,6 +11,7 @@ DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 class LsFinder:
     """Performs the probabilistic search on a randomly generated landscape
     """
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self, dim_arg=DEFAULT_DIM,
                  move_vec_arg=DEFAULT_MOVE_VECTORS):
@@ -101,12 +102,13 @@ class LsFinder:
             return np.argmax(score_matrix())
 
         search_approach = search_approach.lower()
-        if search_approach is 'global':
-            def get_next_tile():
+        if search_approach == 'global':
+            def get_next_tile_func():
                 index = get_most_likely_global()
                 return np.unravel_index(index, (self.dim, self.dim))
-        elif search_approach is 'local':
-            def get_next_tile():
+            get_next_tile = get_next_tile_func
+        elif search_approach == 'local':
+            def get_next_tile_func():
                 moves = self.move_vectors + self.cur_location
                 scores = np.array(list(map(coords_to_chance, moves)))
                 next_move = moves[np.argmax(scores)]
@@ -114,14 +116,15 @@ class LsFinder:
                 # print(next_move)
                 self.cur_location = next_move
                 return next_move
-        elif search_approach is 'path':
+            get_next_tile = get_next_tile_func
+        elif search_approach == 'path':
             # TODO implement path
             pass
 
         target_found = False
         while not target_found:
             total_steps += 1
-            next_move = self.get_next_tile()
+            next_move = get_next_tile()
             target_found = self.find(next_move)
             if target_found:
                 return total_steps
@@ -193,44 +196,62 @@ class LsFinder:
         clue = self.landscape.last_move
         target_move_vectors = Landscape.get_target_move_vectors()
 
-        new_belief = np.zeros((self.dim, self.dim))
+        matching_t_id_map = np.zeros((self.dim, self.dim))
+        num_moves_from_map = np.zeros((self.dim, self.dim))
         for x in range(self.dim):
             for y in range(self.dim):
                 coords = (x, y)
                 t_id = self.landscape.t_id_map[coords]
                 if t_id not in clue:
-                    continue
+                    other_t_id = -1
                 if t_id == clue[0]:
                     other_t_id = clue[1]
                 else:
                     other_t_id = clue[0]
-                valid_neighbors = []
+                matching_t_id_map[coords] = other_t_id
+
+                # Calculate the number of moves from (x,y) that match the
+                # transition description
+                neighbors = coords + target_move_vectors
+                for neighbor in neighbors:
+                    neighbor = tuple(neighbor)
+                    if self.landscape.t_id_map[neighbor] == t_id:
+                        num_moves_from_map[coords] += 1
+
+        new_belief = np.zeros((self.dim, self.dim))
+        for x in range(self.dim):
+            for y in range(self.dim):
+                coords = (x, y)
+                # Get the t_id of the terrain we're on and the prev terrain
+                t_id = self.landscape.t_id_map[coords]
+                other_t_id = matching_t_id_map[coords]
+
                 poss_prev_locations = coords - target_move_vectors
+
                 for neighbor in poss_prev_locations:
+                    # neighbor is
+                    neighbor = tuple(neighbor)
+                    if self.landscape.t_id_map[neighbor] != other_t_id:
+                        # Filter out wrong t_id
+                        continue
+                    num_trans = num_moves_from_map[coords]
+                    new_belief[coords] += 1/num_trans
 
-
-
-
-
-
-
-
-
-
+        self.likelihood = new_belief
 
 
 if __name__ == '__main__':
     set_debug_level(5)
-    finder = LsFinder()
+    FINDER = LsFinder()
     num_test = 100
-    search_functions = [
-                        finder.search_rule1,
-                        finder.search_rule2,
-                        finder.simple_wander_search_r1,
-                        finder.simple_wander_search_r2,
-                        ]
-    for func in search_functions:
-        avg_steps = finder.run_trials(num_test, func)
+    SEARCH_FUNCTIONS = [
+        FINDER.search_rule1,
+        FINDER.search_rule2,
+        FINDER.simple_wander_search_r1,
+        FINDER.simple_wander_search_r2,
+        ]
+    for func in SEARCH_FUNCTIONS:
+        avg_steps = FINDER.run_trials(num_test, func)
         print(f"Average number of steps for\
               {func.__name__} is [{avg_steps}]")
     print("done")
