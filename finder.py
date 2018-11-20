@@ -4,7 +4,7 @@ import numpy as np
 from landscape import Landscape
 from finder_utils import debug_print, set_debug_level, error_print
 
-DEFAULT_DIM = 5
+DEFAULT_DIM = 10
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
 
@@ -97,7 +97,7 @@ class LsFinder:
         def coords_to_chance(coords):
             coords = tuple(coords)
             if not self.in_bounds(coords):
-                return 0
+                return -1
             scores = score_matrix()
             return scores[coords]
 
@@ -129,7 +129,7 @@ class LsFinder:
         while not target_found:
             total_steps += 1
             next_move = get_next_tile()
-            print(self.likelihood[next_move])
+            # print(self.likelihood[next_move])
             target_found = self.find(next_move)
             if target_found:
                 return total_steps
@@ -214,7 +214,7 @@ class LsFinder:
 if __name__ == '__main__':
     set_debug_level(5)
     FINDER = LsFinder()
-    num_test = 1
+    num_test = 100
     # SEARCH_FUNCTIONS = [
     #     FINDER.search_rule1,
     #     FINDER.search_rule2,
