@@ -89,111 +89,6 @@ class LsFinder:
         self.likelihood /= np.sum(self.likelihood)
         return new_belief
 
-    # def bayes_update_on_move(self, )
-
-    def move_on_path(self):
-        # TODO implement path walking
-        pos = self.cur_location
-        target = self.cur_path_target
-        if pos == target:
-            return
-        elif pos[0] < target[0]:
-            self.cur_location = (pos[0]+1, pos[1])
-            return
-        elif pos[0] > target[0]:
-            self.cur_location = (pos[0]-1, pos[1])
-            return
-        elif pos[1] < target[1]:
-            self.cur_location = (pos[0], pos[1]+1)
-            return
-        elif pos[1] > target[1]:
-            self.cur_location = (pos[0], pos[1]-1)
-            return
-
-    def search_target(self, rule_num, search_approach,
-                      target_moving_arg=False):
-        """Runs a certain algorithm to search for the target on a certain map
-        """
-
-        search_approach = search_approach.lower()
-        total_steps = 0
-        self.landscape.is_target_moving = target_moving_arg
-
-        # Rule 1 -> likelihood that the target is in a cell
-        # Rule 2 -> likelihood that the target is found in a cell
-        if rule_num == 1:
-            def score_matrix():
-                return self.likelihood
-        elif rule_num == 2:
-            def score_matrix():
-                return np.multiply(self.likelihood, 1-self.landscape.prob_map)
-        else:
-            error_print("Invalid rule number", 0)
-            return -1
-
-        def coords_to_chance(coords):
-            coords = tuple(coords)
-            if not self.in_bounds(coords):
-                return -1
-            scores = score_matrix()
-            return scores[coords]
-
-        def best_global_cell():
-            index = np.argmax(score_matrix())
-            index = np.unravel_index(index, (self.dim, self.dim))
-            return index
-        # Set the decide_path and agent_search algorithm
-        if search_approach == 'global':
-            # No pathing always searches the best global
-            def decide_path_global():
-                return
-
-            def agent_search_global():
-                coords = best_global_cell()
-                return self.search_cell(coords)
-
-            decide_path = decide_path_global
-            agent_search = agent_search_global
-        elif search_approach == 'path_simple':
-            # Travels to the best cell then searches it
-            def decide_path_simple():
-                if self.cur_path_target is None:
-                    self.cur_path_target = best_global_cell()
-                if self.cur_location == self.cur_path_target:
-                    self.cur_path_target = None
-
-            def agent_search_simple():
-                 return self.search_cell(self.cur_location)
-
-            decide_path = decide_path_simple
-            agent_search = agent_search_simple
-        elif search_approach == 'path_smart':
-            # TODO implement path
-            pass
-
-        target_found = False
-        while not target_found:
-            total_steps += 1
-            decide_path()
-            if self.cur_path_target is None:
-                target_found = agent_search()
-            else:
-                self.move_on_path()
-        return total_steps
-
-    def in_bounds(self, coords):
-        return self.landscape.in_bounds(coords)
-
-    def run_trials(self, num_trials, search_rule):
-        total_steps = 0
-        for __ in range(0, num_trials):
-            self.reset_all()
-            target_found = False
-            while not target_found:
-                target_found = search_rule()
-                total_steps += 1
-        return total_steps/num_trials
-
     def bayes_update_on_move(self):
         # Fetch the observation on boundry crossing from the landscape
         clue = self.landscape.get_last_transition()
@@ -253,6 +148,122 @@ class LsFinder:
         self.likelihood = new_belief
         self.likelihood /= np.sum(self.likelihood)
 
+    def move_on_path(self):
+        # TODO implement path walking
+        pos = self.cur_location
+        target = self.cur_path_target
+        if pos == target:
+            return
+        elif pos[0] < target[0]:
+            self.cur_location = (pos[0]+1, pos[1])
+            return
+        elif pos[0] > target[0]:
+            self.cur_location = (pos[0]-1, pos[1])
+            return
+        elif pos[1] < target[1]:
+            self.cur_location = (pos[0], pos[1]+1)
+            return
+        elif pos[1] > target[1]:
+            self.cur_location = (pos[0], pos[1]-1)
+            return
+
+    def search_target(self, rule_num, search_approach,
+                      target_moving_arg=False):
+        """Runs a certain algorithm to search for the target on a certain map
+        """
+
+        search_approach = search_approach.lower()
+        total_steps = 0
+        self.landscape.is_target_moving = target_moving_arg
+
+        # Rule 1 -> likelihood that the target is in a cell
+        # Rule 2 -> likelihood that the target is found in a cell
+        if rule_num == 1:
+            def score_matrix():
+                return self.likelihood
+        elif rule_num == 2:
+            def score_matrix():
+                return np.multiply(self.likelihood, 1-self.landscape.prob_map)
+        else:
+            error_print("Invalid rule number", 0)
+            return -1
+
+        def coords_to_chance(coords):
+            coords = tuple(coords)
+            if not self.in_bounds(coords):
+                return -1
+            scores = score_matrix()
+            return scores[coords]
+
+        def best_global_cell():
+            index = np.argmax(score_matrix())
+            index = np.unravel_index(index, (self.dim, self.dim))
+            return index
+        # Set the decide_path and agent_search algorithm
+        if search_approach == 'global':
+            # No pathing always searches the best global
+            def decide_path_global():
+                self.cur_path_target = None
+                return
+
+            def agent_search_global():
+                coords = best_global_cell()
+                return self.search_cell(coords)
+
+            decide_path = decide_path_global
+            agent_search = agent_search_global
+        elif search_approach == 'path_simple':
+            # Travels to the best cell then searches it
+            def decide_path_simple():
+                if self.cur_path_target is None:
+                    self.cur_path_target = best_global_cell()
+                if self.cur_location == self.cur_path_target:
+                    self.cur_path_target = None
+
+            def agent_search_simple():
+                return self.search_cell(self.cur_location)
+
+            decide_path = decide_path_simple
+            agent_search = agent_search_simple
+        elif search_approach == 'path_smart':
+            def decide_path_smart():
+                if self.cur_path_target is None:
+                    # TODO replace best_global_cell() with scoring func
+                    self.cur_path_target = best_global_cell()
+                if self.cur_location == self.cur_path_target:
+                    self.cur_path_target = None
+
+            def agent_search_smart():
+                return self.search_cell(self.cur_location)
+
+            decide_path = decide_path_smart
+            agent_search = agent_search_smart
+
+        target_found = False
+        while not target_found:
+            total_steps += 1
+            # Sets the path to none if no movement needed
+            decide_path()
+            if self.cur_path_target is None:
+                target_found = agent_search()
+            else:
+                self.move_on_path()
+        return total_steps
+
+    def in_bounds(self, coords):
+        return self.landscape.in_bounds(coords)
+
+    def run_trials(self, num_trials, search_rule):
+        total_steps = 0
+        for __ in range(0, num_trials):
+            self.reset_all()
+            target_found = False
+            while not target_found:
+                target_found = search_rule()
+                total_steps += 1
+        return total_steps/num_trials
+
+
     def p_state(self):
         print(self.likelihood)
         print(self.cur_path_target)
@@ -276,19 +287,6 @@ if __name__ == '__main__':
     print(f'''Target located at {FINDER.landscape.target}
           and is in t_id {FINDER.landscape.t_id_map[FINDER.landscape.target]}
           ''')
-    # TEST 2 bayesian update on
-    # print(f'Terrain:\n{FINDER.landscape.t_id_map}\n')
-    # print(f'Likelihood:\n{FINDER.likelihood}\n')
-
-    # FINDER.landscape.move_target()
-    # print(f'Last transition: {FINDER.landscape.get_last_transition()}\n')
-    # FINDER.bayes_update_on_move()
-    # print(f'Likelihood:\n{FINDER.likelihood}\n')
-
-    # FINDER.landscape.move_target()
-    # print(f'Last transition: {FINDER.landscape.get_last_transition()}\n')
-    # FINDER.bayes_update_on_move()
-    # print(f'Likelihood:\n{FINDER.likelihood}\n')
 
     # Test 3
     avg = 0
