@@ -4,7 +4,7 @@ import numpy as np
 from landscape import Landscape
 from finder_utils import debug_print, set_debug_level, error_print
 
-DEFAULT_DIM = 3
+DEFAULT_DIM = 50
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
 
@@ -19,7 +19,6 @@ class LsFinder:
         self.move_vectors = move_vec_arg
         self.landscape = Landscape(self.dim)
         self.cur_location = ([int(self.dim/2), int(self.dim/2)])
-        self.cur_location = None
         self.path_target = None
         self.default_chance = 1/(self.dim*self.dim)
         self.likelihood = np.ones(
@@ -96,7 +95,11 @@ class LsFinder:
             return -1
 
         def coords_to_chance(coords):
-            return score_matrix()[coords]
+            coords = tuple(coords)
+            if not self.in_bounds(coords):
+                return 0
+            scores = score_matrix()
+            return scores[coords]
 
         def get_most_likely_global():
             return np.argmax(score_matrix())
@@ -109,6 +112,7 @@ class LsFinder:
             get_next_tile = get_next_tile_func
         elif search_approach == 'local':
             def get_next_tile_func():
+                np.random.shuffle(self.move_vectors)
                 moves = self.move_vectors + self.cur_location
                 scores = np.array(list(map(coords_to_chance, moves)))
                 next_move = moves[np.argmax(scores)]
@@ -244,14 +248,25 @@ if __name__ == '__main__':
     set_debug_level(5)
     FINDER = LsFinder()
     num_test = 100
-    SEARCH_FUNCTIONS = [
-        FINDER.search_rule1,
-        FINDER.search_rule2,
-        FINDER.simple_wander_search_r1,
-        FINDER.simple_wander_search_r2,
-        ]
-    for func in SEARCH_FUNCTIONS:
-        avg_steps = FINDER.run_trials(num_test, func)
-        print(f"Average number of steps for\
-              {func.__name__} is [{avg_steps}]")
+    # SEARCH_FUNCTIONS = [
+    #     FINDER.search_rule1,
+    #     FINDER.search_rule2,
+    #     FINDER.simple_wander_search_r1,
+    #     FINDER.simple_wander_search_r2,
+    #     ]
+    # for func in SEARCH_FUNCTIONS:
+    #     avg_steps = FINDER.run_trials(num_test, func)
+    #     print(f"Average number of steps for\
+    #           {func.__name__} is [{avg_steps}]")
+    print(f'''Target located at {FINDER.landscape.target}
+          and is in t_id {FINDER.landscape.t_id_map[FINDER.landscape.target]}''')
+    avg = 0
+    for _ in range (num_test):
+        x = FINDER.search_target(2, "local")
+        # FINDER.reset_finder()
+        FINDER.reset_finder()
+        print(x)
+        avg += x
+    avg /= num_test
+    print(f'average = {avg}')
     print("done")
