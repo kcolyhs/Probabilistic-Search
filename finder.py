@@ -4,7 +4,7 @@ import numpy as np
 from landscape import Landscape
 from finder_utils import debug_print, set_debug_level, error_print
 
-DEFAULT_DIM = 50
+DEFAULT_DIM = 5
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
 
@@ -129,6 +129,7 @@ class LsFinder:
         while not target_found:
             total_steps += 1
             next_move = get_next_tile()
+            print(self.likelihood[next_move])
             target_found = self.find(next_move)
             if target_found:
                 return total_steps
@@ -137,53 +138,8 @@ class LsFinder:
                 self.bayes_update_on_move()
         return total_steps
 
-    def search_rule1(self):
-        search_index = np.argmax(self.likelihood)
-        x = int(search_index/self.dim)
-        y = search_index % self.dim
-        return self.find((x, y))
-
-    def simple_wander_search_r1(self):
-        moves = self.move_vectors + self.cur_location
-        scores = np.array(list(map(self.rule1, moves)))
-        next_move = moves[np.argmax(scores)]
-        next_move = tuple(next_move)
-        debug_print(f'Next move is:{next_move} with chance{np.max(scores)}', 9)
-        self.cur_location = next_move
-        return self.find(next_move)
-
-    def simple_wander_search_r2(self):
-        moves = self.move_vectors + self.cur_location
-        scores = np.array(list(map(self.rule2, moves)))
-        next_move = moves[np.argmax(scores)]
-        next_move = tuple(next_move)
-        debug_print(f'Next move is:{next_move} with chance{np.max(scores)}', 5)
-        self.cur_location = next_move
-        return self.find(next_move)
-
-    def rule1(self, coords):
-        coords = tuple(coords)
-        if not self.in_bounds(coords):
-            return 0
-        return self.likelihood[coords]
-
-    def rule2(self, coords):
-        coords = tuple(coords)
-        if not self.in_bounds(coords):
-            return 0
-        return (np.multiply(self.likelihood, 1 - self.landscape.prob_map)
-                [coords])
-
     def in_bounds(self, coords):
         return self.landscape.in_bounds(coords)
-
-    def search_rule2(self):
-        # prob of being found = prob of being in * (1 - false negative)
-        search_index = np.argmax(np.multiply(
-            self.likelihood, 1 - self.landscape.prob_map))
-        x = int(search_index/self.dim)
-        y = search_index % self.dim
-        return self.find((x, y))
 
     def run_trials(self, num_trials, search_rule):
         total_steps = 0
@@ -197,30 +153,35 @@ class LsFinder:
 
     def bayes_update_on_move(self):
         # Fetch the observation on boundry crossing from the landscape
-        clue = self.landscape.last_move
+        clue = self.landscape.get_last_transition()
+        if clue is None:
+            return
         target_move_vectors = Landscape.get_target_move_vectors()
 
-        matching_t_id_map = np.zeros((self.dim, self.dim))
-        num_moves_from_map = np.zeros((self.dim, self.dim))
+        other_t_ids = np.zeros((self.dim, self.dim)) - 1
+        num_moves_arr = np.zeros((self.dim, self.dim))
         for x in range(self.dim):
             for y in range(self.dim):
                 coords = (x, y)
                 t_id = self.landscape.t_id_map[coords]
                 if t_id not in clue:
                     other_t_id = -1
+                    continue
                 if t_id == clue[0]:
                     other_t_id = clue[1]
                 else:
                     other_t_id = clue[0]
-                matching_t_id_map[coords] = other_t_id
+                other_t_ids[coords] = other_t_id
 
                 # Calculate the number of moves from (x,y) that match the
                 # transition description
                 neighbors = coords + target_move_vectors
                 for neighbor in neighbors:
                     neighbor = tuple(neighbor)
-                    if self.landscape.t_id_map[neighbor] == t_id:
-                        num_moves_from_map[coords] += 1
+                    if not self.in_bounds(neighbor):
+                        continue
+                    if self.landscape.t_id_map[neighbor] == other_t_id:
+                        num_moves_arr[coords] += 1
 
         new_belief = np.zeros((self.dim, self.dim))
         for x in range(self.dim):
@@ -228,26 +189,32 @@ class LsFinder:
                 coords = (x, y)
                 # Get the t_id of the terrain we're on and the prev terrain
                 t_id = self.landscape.t_id_map[coords]
-                other_t_id = matching_t_id_map[coords]
+                other_t_id = other_t_ids[coords]
+                if other_t_id == -1:
+                    continue
 
                 poss_prev_locations = coords - target_move_vectors
 
                 for neighbor in poss_prev_locations:
-                    # neighbor is
                     neighbor = tuple(neighbor)
+                    if not self.in_bounds(neighbor):
+                        continue
+                    # neighbor is
                     if self.landscape.t_id_map[neighbor] != other_t_id:
                         # Filter out wrong t_id
                         continue
-                    num_trans = num_moves_from_map[coords]
-                    new_belief[coords] += 1/num_trans
+                    num_trans = num_moves_arr[neighbor]
+                    new_belief[coords] += ((1/num_trans)
+                                           * self.likelihood[neighbor])
 
         self.likelihood = new_belief
+        self.likelihood /= np.sum(self.likelihood)
 
 
 if __name__ == '__main__':
     set_debug_level(5)
     FINDER = LsFinder()
-    num_test = 100
+    num_test = 1
     # SEARCH_FUNCTIONS = [
     #     FINDER.search_rule1,
     #     FINDER.search_rule2,
@@ -259,13 +226,28 @@ if __name__ == '__main__':
     #     print(f"Average number of steps for\
     #           {func.__name__} is [{avg_steps}]")
     print(f'''Target located at {FINDER.landscape.target}
-          and is in t_id {FINDER.landscape.t_id_map[FINDER.landscape.target]}''')
+          and is in t_id {FINDER.landscape.t_id_map[FINDER.landscape.target]}
+          ''')
+    # TEST 2 bayesian update on
+    # print(f'Terrain:\n{FINDER.landscape.t_id_map}\n')
+    # print(f'Likelihood:\n{FINDER.likelihood}\n')
+
+    # FINDER.landscape.move_target()
+    # print(f'Last transition: {FINDER.landscape.get_last_transition()}\n')
+    # FINDER.bayes_update_on_move()
+    # print(f'Likelihood:\n{FINDER.likelihood}\n')
+
+    # FINDER.landscape.move_target()
+    # print(f'Last transition: {FINDER.landscape.get_last_transition()}\n')
+    # FINDER.bayes_update_on_move()
+    # print(f'Likelihood:\n{FINDER.likelihood}\n')
+
+    # Test 3
     avg = 0
-    for _ in range (num_test):
-        x = FINDER.search_target(2, "local")
+    for _ in range(num_test):
+        x = FINDER.search_target(2, "local", target_moving_arg=True)
         # FINDER.reset_finder()
         FINDER.reset_finder()
-        print(x)
         avg += x
     avg /= num_test
     print(f'average = {avg}')

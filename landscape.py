@@ -45,7 +45,7 @@ class Landscape:
         self.dim = dim
         self.target = (0, 0)
         self.is_target_moving = False
-        self.last_move = False
+        self.last_move = None
         self.generate_map()
         self.misses = 0
 
@@ -84,7 +84,18 @@ class Landscape:
             if self.in_bounds(new_loc):
                 self.target = new_loc
                 self.last_move = (old_loc, new_loc)
+                debug_print(f'[LANDSCAPE]: Target moved: {self.last_move}', 7)
                 break
+
+    def get_last_transition(self):
+        first_t_id = self.t_id_map[self.last_move[0]]
+        second_t_id = self.t_id_map[self.last_move[1]]
+
+        transition = [first_t_id, second_t_id]
+        random.shuffle(transition)
+        transition = tuple(transition)
+        return transition
+
 
     def query_tile(self, coord):
         """Checks the tile indexed by coord for the target
