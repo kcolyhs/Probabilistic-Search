@@ -7,6 +7,14 @@ from finder_utils import debug_print, set_debug_level, error_print
 DEFAULT_DIM = 10
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
+KERNEL = np.array([
+        [0, 0, 1, 0, 0],
+        [0, 1, 2, 1, 0],
+        [1, 2, 5, 2, 1],
+        [0, 1, 2, 1, 0],
+        [0, 0, 1, 0, 0]
+        ])
+
 
 class LsFinder:
     """Performs the probabilistic search on a randomly generated landscape
@@ -25,6 +33,7 @@ class LsFinder:
             shape=(self.dim, self.dim))
         self.likelihood *= self.default_chance
         self.query_counter = np.zeros((self.dim, self.dim))
+        self.cur_path_target = None
 
     def reset_all(self):
         """Resets the finder with a new map and recenters the cur_location
@@ -35,6 +44,7 @@ class LsFinder:
             shape=(self.dim, self.dim))
         self.likelihood *= self.default_chance
         self.query_counter = np.zeros((self.dim, self.dim))
+        self.cur_path_target = None
 
     def reset_finder(self):
         """Resets the finder with the same map and recenters the cur_location
@@ -44,19 +54,23 @@ class LsFinder:
             shape=(self.dim, self.dim))
         self.likelihood *= self.default_chance
         self.query_counter = np.zeros((self.dim, self.dim))
+        self.cur_path_target = None
 
-    def find(self, coords):
+    def search_cell(self, coords):
         debug_print(f"Searching in spot [{coords}]", 8)
         self.query_counter[coords] += 1
+        # searches the cell and moves the target if not found
         if self.landscape.query_tile(coords):
             # print(f"Target has been found in [{x},{y}]")
             return True
         self.bayes_update_on_miss(coords)
+        if self.landscape.is_target_moving:
+            self.bayes_update_on_move
         # print(self.likelihood)
         return False
 
     def bayes_update_on_miss(self, miss_coords):
-        """Performs the bayesian update on a miss on a certain tile
+        """Performs the bayesian update on a miss on a certain cell
 
             Parameters
             ----------
@@ -77,13 +91,36 @@ class LsFinder:
 
     # def bayes_update_on_move(self, )
 
+    def move_on_path(self):
+        # TODO implement path walking
+        pos = self.cur_location
+        target = self.cur_path_target
+        if pos == target:
+            return
+        elif pos[0] < target[0]:
+            self.cur_location = (pos[0]+1, pos[1])
+            return
+        elif pos[0] > target[0]:
+            self.cur_location = (pos[0]-1, pos[1])
+            return
+        elif pos[1] < target[1]:
+            self.cur_location = (pos[0], pos[1]+1)
+            return
+        elif pos[1] > target[1]:
+            self.cur_location = (pos[0], pos[1]-1)
+            return
+
     def search_target(self, rule_num, search_approach,
                       target_moving_arg=False):
-        """Runs a certain algorithm to find the target on a certain map
+        """Runs a certain algorithm to search for the target on a certain map
         """
 
+        search_approach = search_approach.lower()
         total_steps = 0
         self.landscape.is_target_moving = target_moving_arg
+
+        # Rule 1 -> likelihood that the target is in a cell
+        # Rule 2 -> likelihood that the target is found in a cell
         if rule_num == 1:
             def score_matrix():
                 return self.likelihood
@@ -101,41 +138,47 @@ class LsFinder:
             scores = score_matrix()
             return scores[coords]
 
-        def get_most_likely_global():
-            return np.argmax(score_matrix())
-
-        search_approach = search_approach.lower()
+        def best_global_cell():
+            index = np.argmax(score_matrix())
+            index = np.unravel_index(index, (self.dim, self.dim))
+            return index
+        # Set the decide_path and agent_search algorithm
         if search_approach == 'global':
-            def get_next_tile_func():
-                index = get_most_likely_global()
-                return np.unravel_index(index, (self.dim, self.dim))
-            get_next_tile = get_next_tile_func
-        elif search_approach == 'local':
-            def get_next_tile_func():
-                np.random.shuffle(self.move_vectors)
-                moves = self.move_vectors + self.cur_location
-                scores = np.array(list(map(coords_to_chance, moves)))
-                next_move = moves[np.argmax(scores)]
-                next_move = tuple(next_move)
-                # print(next_move)
-                self.cur_location = next_move
-                return next_move
-            get_next_tile = get_next_tile_func
-        elif search_approach == 'path':
+            # No pathing always searches the best global
+            def decide_path_global():
+                return
+
+            def agent_search_global():
+                coords = best_global_cell()
+                return self.search_cell(coords)
+
+            decide_path = decide_path_global
+            agent_search = agent_search_global
+        elif search_approach == 'path_simple':
+            # Travels to the best cell then searches it
+            def decide_path_simple():
+                if self.cur_path_target is None:
+                    self.cur_path_target = best_global_cell()
+                if self.cur_location == self.cur_path_target:
+                    self.cur_path_target = None
+
+            def agent_search_simple():
+                 return self.search_cell(self.cur_location)
+
+            decide_path = decide_path_simple
+            agent_search = agent_search_simple
+        elif search_approach == 'path_smart':
             # TODO implement path
             pass
 
         target_found = False
         while not target_found:
             total_steps += 1
-            next_move = get_next_tile()
-            # print(self.likelihood[next_move])
-            target_found = self.find(next_move)
-            if target_found:
-                return total_steps
-            self.bayes_update_on_miss(next_move)
-            if target_moving_arg is True:
-                self.bayes_update_on_move()
+            decide_path()
+            if self.cur_path_target is None:
+                target_found = agent_search()
+            else:
+                self.move_on_path()
         return total_steps
 
     def in_bounds(self, coords):
@@ -210,6 +253,11 @@ class LsFinder:
         self.likelihood = new_belief
         self.likelihood /= np.sum(self.likelihood)
 
+    def p_state(self):
+        print(self.likelihood)
+        print(self.cur_path_target)
+        print(self.cur_location)
+
 
 if __name__ == '__main__':
     set_debug_level(5)
@@ -245,7 +293,7 @@ if __name__ == '__main__':
     # Test 3
     avg = 0
     for _ in range(num_test):
-        x = FINDER.search_target(2, "local", target_moving_arg=True)
+        x = FINDER.search_target(1, "global", target_moving_arg=True)
         # FINDER.reset_finder()
         FINDER.reset_finder()
         avg += x
