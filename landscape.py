@@ -45,8 +45,9 @@ class Landscape:
         self.dim = dim
         self.target = (0, 0)
         self.is_target_moving = False
-        self.last_move = False
+        self.last_move = None
         self.generate_map()
+        self.misses = 0
 
     def generate_map(self):
         """Generates a new random map and places the target randomly inside
@@ -83,7 +84,18 @@ class Landscape:
             if self.in_bounds(new_loc):
                 self.target = new_loc
                 self.last_move = (old_loc, new_loc)
+                debug_print(f'[LANDSCAPE]: Target moved: {self.last_move}', 7)
                 break
+
+    def get_last_transition(self):
+        first_t_id = self.t_id_map[self.last_move[0]]
+        second_t_id = self.t_id_map[self.last_move[1]]
+
+        transition = [first_t_id, second_t_id]
+        random.shuffle(transition)
+        transition = tuple(transition)
+        return transition
+
 
     def query_tile(self, coord):
         """Checks the tile indexed by coord for the target
@@ -101,16 +113,20 @@ class Landscape:
             bool
                 Returns true if the search found the target
         """
-        coord_x = coord[0]
-        coord_y = coord[1]
-        target_found = False
         if self.target == coord:
-            if random.uniform(0, 1) > self.prob_map[coord_x][coord_y]:
-                target_found = True
+
+            roll = random.uniform(0, 1)
+            if roll > self.prob_map[coord]:
+                targ_ter = self.terrain_names[int(self.t_id_map[self.target])]
+                debug_print((f'[LANDSCAPE]: found the target in {targ_ter} '
+                             f'after {self.misses} searches in the tile'), 6)
+                self.misses = 0
+                return True
+            self.misses += 1
         # Moves the target if not found and if enabled
-        if self.is_target_moving and not target_found:
+        if self.is_target_moving:
             self.move_target()
-        return target_found
+        return False
 
     def in_bounds(self, coord):
         """Checks if coordinate tuple is within array bounds
@@ -140,5 +156,10 @@ if __name__ == '__main__':
     LS = Landscape(50)
     LS.generate_map()
     LS.move_target()
-    LS.query_tile((1, 1))
-    x = LS
+    tar = LS.target
+    p = 1 - LS.prob_map[tar]
+    count = 0
+    for _ in range(10000):
+        if LS.query_tile(tar):
+            count += 1
+    print('done')
