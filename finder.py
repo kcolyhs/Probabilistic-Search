@@ -2,7 +2,7 @@
 """
 import numpy as np
 from landscape import Landscape
-from finder_utils import debug_print, set_debug_level, error_print
+from finder_utils import debug_print, error_print, cell_dist, set_debug_level
 
 DEFAULT_DIM = 10
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
@@ -199,6 +199,17 @@ class LsFinder:
             index = np.argmax(score_matrix())
             index = np.unravel_index(index, (self.dim, self.dim))
             return index
+
+        def best_close_cell():
+            '''Smarter algorithm that weighs in distance'''
+            # TODO write this
+            scores = np.copy(score_matrix())
+            for x in range(self.dim):
+                for y in range(self.dim):
+                    coords = (x, y)
+                    dist = cell_dist(coords, self.cur_location)
+                    scores[coords] =
+
         # Set the decide_path and agent_search algorithm
         if search_approach == 'global':
             # No pathing always searches the best global
@@ -262,7 +273,6 @@ class LsFinder:
                 target_found = search_rule()
                 total_steps += 1
         return total_steps/num_trials
-
 
     def p_state(self):
         print(self.likelihood)
