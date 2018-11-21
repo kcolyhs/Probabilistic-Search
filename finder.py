@@ -3,8 +3,9 @@
 import numpy as np
 from landscape import Landscape
 from finder_utils import debug_print, error_print, cell_dist, set_debug_level
+# from math import pi
 
-DEFAULT_DIM = 10
+DEFAULT_DIM = 50
 DEFAULT_MOVE_VECTORS = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [0, 0]])
 
 KERNEL = np.array([
@@ -207,7 +208,14 @@ class LsFinder:
                     coords = (x, y)
                     dist = cell_dist(coords, self.cur_location)
                     dists[coords] = dist + 1
+
+            # dists -= self.dim
+            # dists = np.arctan(dists)
+            # dists *= -(1/pi)
+            # dists += 1/2
+            # scores = np.multiply(scores, dists)
             scores = np.divide(scores, dists)
+
             index = np.argmax(scores)
             index = np.unravel_index(index, (self.dim, self.dim))
             return index
@@ -288,7 +296,7 @@ class LsFinder:
 if __name__ == '__main__':
     set_debug_level(5)
     FINDER = LsFinder()
-    num_test = 100
+    num_test = 150
     # SEARCH_FUNCTIONS = [
     #     FINDER.search_rule1,
     #     FINDER.search_rule2,
@@ -306,9 +314,9 @@ if __name__ == '__main__':
     # Test 3
     avg = 0
     for _ in range(num_test):
-        x = FINDER.search_target(2, "path_smart", target_moving_arg=False)
+        x = FINDER.search_target(1, "path_simple", target_moving_arg=False)
         # FINDER.reset_finder()
-        FINDER.reset_finder()
+        FINDER.reset_all()
         avg += x
     avg /= num_test
     print(f'average = {avg}')
