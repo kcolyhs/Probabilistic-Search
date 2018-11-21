@@ -18,4 +18,7 @@ def error_print(str, level):
 
 
 def cell_dist(cell1, cell2):
-    return (cell1[0]+cell1[1]-cell2[0]-cell2[1])
+    x_diff = abs(cell1[0] - cell2[0])
+    y_diff = abs(cell1[1] - cell2[1])
+    dist = x_diff + y_diff
+    return dist

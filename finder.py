@@ -27,6 +27,7 @@ class LsFinder:
         self.move_vectors = move_vec_arg
         self.landscape = Landscape(self.dim)
         self.cur_location = ([int(self.dim/2), int(self.dim/2)])
+        self.cur_location = tuple(self.cur_location)
         self.path_target = None
         self.default_chance = 1/(self.dim*self.dim)
         self.likelihood = np.ones(
@@ -39,17 +40,13 @@ class LsFinder:
         """Resets the finder with a new map and recenters the cur_location
         """
         self.landscape = Landscape(self.dim)
-        self.cur_location = ([int(self.dim/2), int(self.dim/2)])
-        self.likelihood = np.ones(
-            shape=(self.dim, self.dim))
-        self.likelihood *= self.default_chance
-        self.query_counter = np.zeros((self.dim, self.dim))
-        self.cur_path_target = None
+        self.reset_finder()
 
     def reset_finder(self):
         """Resets the finder with the same map and recenters the cur_location
         """
         self.cur_location = ([int(self.dim/2), int(self.dim/2)])
+        self.cur_location = tuple(self.cur_location)
         self.likelihood = np.ones(
             shape=(self.dim, self.dim))
         self.likelihood *= self.default_chance
@@ -188,12 +185,12 @@ class LsFinder:
             error_print("Invalid rule number", 0)
             return -1
 
-        def coords_to_chance(coords):
-            coords = tuple(coords)
-            if not self.in_bounds(coords):
-                return -1
-            scores = score_matrix()
-            return scores[coords]
+        # def coords_to_chance(coords):
+        #     coords = tuple(coords)
+        #     if not self.in_bounds(coords):
+        #         return -1
+        #     scores = score_matrix()
+        #     return scores[coords]
 
         def best_global_cell():
             index = np.argmax(score_matrix())
@@ -204,11 +201,16 @@ class LsFinder:
             '''Smarter algorithm that weighs in distance'''
             # TODO write this
             scores = np.copy(score_matrix())
+            dists = np.zeros((self.dim, self.dim))
             for x in range(self.dim):
                 for y in range(self.dim):
                     coords = (x, y)
                     dist = cell_dist(coords, self.cur_location)
-                    scores[coords] =
+                    dists[coords] = dist + 1
+            scores = np.divide(scores, dists)
+            index = np.argmax(scores)
+            index = np.unravel_index(index, (self.dim, self.dim))
+            return index
 
         # Set the decide_path and agent_search algorithm
         if search_approach == 'global':
@@ -240,11 +242,12 @@ class LsFinder:
             def decide_path_smart():
                 if self.cur_path_target is None:
                     # TODO replace best_global_cell() with scoring func
-                    self.cur_path_target = best_global_cell()
+                    self.cur_path_target = best_close_cell()
                 if self.cur_location == self.cur_path_target:
                     self.cur_path_target = None
 
             def agent_search_smart():
+                # debug_print(f'Searching: {self.cur_location}', 5)
                 return self.search_cell(self.cur_location)
 
             decide_path = decide_path_smart
@@ -276,7 +279,9 @@ class LsFinder:
 
     def p_state(self):
         print(self.likelihood)
+        print('Current Path Target')
         print(self.cur_path_target)
+        print('Current Position')
         print(self.cur_location)
 
 
@@ -301,7 +306,7 @@ if __name__ == '__main__':
     # Test 3
     avg = 0
     for _ in range(num_test):
-        x = FINDER.search_target(1, "global", target_moving_arg=True)
+        x = FINDER.search_target(2, "path_smart", target_moving_arg=False)
         # FINDER.reset_finder()
         FINDER.reset_finder()
         avg += x
